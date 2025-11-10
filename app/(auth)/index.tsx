@@ -1,7 +1,8 @@
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
-
 import { Button, Text, TextInput } from "react-native-paper";
+import { useAuth } from "../../lib/auth-context";
 
 const auth = () => {
   const [isSignUp, setIsSignUp] = useState<boolean>(false);
@@ -9,23 +10,42 @@ const auth = () => {
   const [password, setPassword] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
+  const router = useRouter();
+
+  // Inicializar los metodos de autenticacion
+  const { signIn, signUp } = useAuth();
+
   // Funcion para cambiar entre modos de autenticacion
   const handleSwitchMode = () => {
     setIsSignUp((prevState) => !prevState);
   };
 
   // Funcion para manejar la autenticacion
-  const handleAuth = () => {
+  const handleAuth = async () => {
     if (!email || !password) {
       setError("Por favor, complete todos los campos.");
       return;
     }
-    if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.");
+    if (password.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres.");
       return;
     }
 
     setError(null);
+
+    if (isSignUp) {
+      const error = await signUp(email, password);
+      if (error) {
+        setError(error);
+      }
+    } else {
+      const error = await signIn(email, password);
+      if (error) {
+        setError(error);
+      }
+    }
+
+    router.replace("/");
   };
 
   return (
@@ -47,7 +67,7 @@ const auth = () => {
         />
         <TextInput
           label="Contraseña"
-          keyboardType="email-address"
+          secureTextEntry
           autoCapitalize="none"
           mode="outlined"
           onChangeText={setPassword}
