@@ -45,7 +45,7 @@ const auth = () => {
       }
     }
 
-    router.replace("/");
+    router.replace("/(tabs)");
   };
 
   return (
