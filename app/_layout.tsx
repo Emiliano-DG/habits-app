@@ -1,6 +1,8 @@
 import LoadingScreen from "@/components/LoadingScreen";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { Stack } from "expo-router";
+import { PaperProvider } from "react-native-paper";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 const LayoutContent = () => {
   const { user, isLoading } = useAuth();
@@ -24,7 +26,11 @@ const LayoutContent = () => {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <LayoutContent />
+      <PaperProvider>
+        <SafeAreaProvider>
+          <LayoutContent />
+        </SafeAreaProvider>
+      </PaperProvider>
     </AuthProvider>
   );
 }
