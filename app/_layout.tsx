@@ -26,11 +26,11 @@ const LayoutContent = () => {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <PaperProvider>
-        <SafeAreaProvider>
+      <SafeAreaProvider>
+        <PaperProvider>
           <LayoutContent />
-        </SafeAreaProvider>
-      </PaperProvider>
+        </PaperProvider>
+      </SafeAreaProvider>
     </AuthProvider>
   );
 }
