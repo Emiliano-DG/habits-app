@@ -47,7 +47,7 @@ const AddHabitScreen = () => {
           frequency,
           streak_count: 0,
           last_completed: new Date().toISOString(),
-          create_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
         }
       );
       router.back();
