@@ -1,6 +1,7 @@
 import LoadingScreen from "@/components/LoadingScreen";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { Stack } from "expo-router";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -25,12 +26,14 @@ const LayoutContent = () => {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <SafeAreaProvider>
-        <PaperProvider>
-          <LayoutContent />
-        </PaperProvider>
-      </SafeAreaProvider>
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <SafeAreaProvider>
+          <PaperProvider>
+            <LayoutContent />
+          </PaperProvider>
+        </SafeAreaProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
