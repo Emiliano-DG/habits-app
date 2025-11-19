@@ -29,11 +29,24 @@ export default function Index() {
     setHabits(response.documents);
   };
 
+  const handleDeleteHabit = async (habitId: string) => {
+    // eliminar habit de la interfaz de usuario inmediatamente
+    setHabits((prevHabits) =>
+      prevHabits.filter((habit) => habit.$id !== habitId)
+    );
+    // eliminar habit de la base de datos
+    try {
+      await databases.deleteDocument(DATABASE_ID, HABITS_TABLE_ID, habitId);
+    } catch (error) {
+      console.error("Error al eliminar el hábito:", error);
+    }
+  };
+
   // funcion para renderizar las acciones al deslizar a la derecha
   const renderRightActions = () => (
     <View style={styles.rightAction}>
       <MaterialCommunityIcons
-        name="check-circle-outline"
+        name="trash-can-outline"
         size={32}
         color="#fff"
         // style={{ backgroundColor: "#4caf50", padding: 20 }}
@@ -45,7 +58,7 @@ export default function Index() {
   const renderLeftActions = () => (
     <View style={styles.leftAction}>
       <MaterialCommunityIcons
-        name="trash-can-outline"
+        name="check-circle-outline"
         size={32}
         color="#fff"
         // style={{ backgroundColor: "#ff5252", padding: 20 }}
@@ -115,6 +128,12 @@ export default function Index() {
               overshootRight={false}
               renderRightActions={renderRightActions}
               renderLeftActions={renderLeftActions}
+              onSwipeableOpen={(direction) => {
+                if (direction === "right") {
+                  swipeableRefs.current[habit.$id]?.close();
+                  handleDeleteHabit(habit.$id);
+                }
+              }}
             >
               <Surface style={styles.card} elevation={0}>
                 <View style={styles.cardContainer}>
@@ -150,7 +169,7 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#000" },
+  container: { flex: 1, padding: 16, backgroundColor: "#f5f5f5" },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -221,10 +240,22 @@ const styles = StyleSheet.create({
   },
   rightAction: {
     justifyContent: "center",
-    alignItems: "center",
+    alignItems: "flex-end",
+    flex: 1,
+    backgroundColor: "#ff5252",
+    borderRadius: 18,
+    marginBottom: 18,
+    paddingHorizontal: 20,
+    marginTop: 2,
   },
   leftAction: {
     justifyContent: "center",
-    alignItems: "center",
+    alignItems: "flex-start",
+    flex: 1,
+    backgroundColor: "#4caf50",
+    borderRadius: 18,
+    marginBottom: 18,
+    paddingHorizontal: 20,
+    marginTop: 2,
   },
 });
