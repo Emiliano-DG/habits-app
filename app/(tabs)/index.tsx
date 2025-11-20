@@ -1,12 +1,13 @@
-import { Habit } from "@/types/database.type";
+import { Habit, HabitCompletion } from "@/types/database.type";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { Query } from "react-native-appwrite";
+import { ID, Query } from "react-native-appwrite";
 import { Swipeable } from "react-native-gesture-handler";
 import { Button, Surface, Text } from "react-native-paper";
 import {
   client,
+  COMPLETIONS_TABLE_ID,
   DATABASE_ID,
   databases,
   HABITS_TABLE_ID,
@@ -17,9 +18,11 @@ import { useAuth } from "../../lib/auth-context";
 export default function Index() {
   const { signOut, user } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [completedHabits, setCompletedHabits] = useState<string[]>([]);
+
   const swipeableRefs = useRef<{ [key: string]: Swipeable | null }>({});
 
-  //funcion para obtener los habits
+  //FUNCION PARA OBTENER LOS HABITS DE LA BASE DE DATOS
   const fetchHabits = async () => {
     const response = await databases.listDocuments<Habit>(
       DATABASE_ID,
@@ -29,6 +32,24 @@ export default function Index() {
     setHabits(response.documents);
   };
 
+  // FUNCION PARA OBTENER LOS HABITS COMPLETADOS HOY
+  const fetchCompletedHabits = async () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // establecer al inicio del día
+    const response = await databases.listDocuments<HabitCompletion>(
+      DATABASE_ID,
+      COMPLETIONS_TABLE_ID,
+      [
+        Query.equal("user_id", user?.$id ?? ""),
+        Query.greaterThan("completed_at", today.toISOString()),
+      ]
+    );
+
+    const completions = response.documents;
+    setCompletedHabits(completions.map((completion) => completion.habit_id));
+  };
+
+  //FUNCION PARA ELIMINAR UN HABIT
   const handleDeleteHabit = async (habitId: string) => {
     // eliminar habit de la interfaz de usuario inmediatamente
     setHabits((prevHabits) =>
@@ -42,7 +63,36 @@ export default function Index() {
     }
   };
 
-  // funcion para renderizar las acciones al deslizar a la derecha
+  // FUNCION PARA COMPLETAR UN HABIT
+  const handleComleteHabit = async (habitId: string) => {
+    const currentDate = new Date().toISOString();
+    if (!user) return;
+    // eliminar habit de la base de datos
+    try {
+      await databases.createDocument(
+        DATABASE_ID,
+        COMPLETIONS_TABLE_ID,
+        ID.unique(),
+        {
+          habit_id: habitId,
+          user_id: user.$id ?? "",
+          completed_at: currentDate,
+        }
+      );
+    } catch (error) {
+      console.error("Error al completar el hábito:", error);
+    }
+
+    const habit = habits.find((h) => h.$id === habitId);
+    if (!habit) return;
+
+    await databases.updateDocument(DATABASE_ID, HABITS_TABLE_ID, habitId, {
+      streak_count: habit.streak_count + 1,
+      last_completed: currentDate,
+    });
+  };
+
+  // FUNCION PARA RENDERIZAR LAS ACCIONES AL DESLIZAR A LA DERECHA
   const renderRightActions = () => (
     <View style={styles.rightAction}>
       <MaterialCommunityIcons
@@ -54,7 +104,7 @@ export default function Index() {
     </View>
   );
 
-  // funcion para renderizar las acciones al deslizar a la izquierda
+  // FUNCION PARA RENDERIZAR LAS ACCIONES AL DESLIZAR A LA IZQUIERDA
   const renderLeftActions = () => (
     <View style={styles.leftAction}>
       <MaterialCommunityIcons
@@ -66,7 +116,7 @@ export default function Index() {
     </View>
   );
 
-  // suscripcion en tiempo real para escuchar cambios en los habits
+  // SUSCRIPCION EN TIEMPO REAL PARA ESCUCHAR CAMBIOS EN LOS HABITS
   useEffect(() => {
     if (!user) return; // evita escuchar la base de datos de un usuario que no esta logueado
     const habitsSubscription = client.subscribe(
@@ -132,6 +182,9 @@ export default function Index() {
                 if (direction === "right") {
                   swipeableRefs.current[habit.$id]?.close();
                   handleDeleteHabit(habit.$id);
+                } else if (direction === "left") {
+                  swipeableRefs.current[habit.$id]?.close();
+                  handleComleteHabit(habit.$id);
                 }
               }}
             >
