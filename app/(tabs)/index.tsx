@@ -1,106 +1,35 @@
-import { Habit, HabitCompletion } from "@/types/database.type";
+import { useHabits } from "@/hooks/useHabits";
+import { useRealtimeHabits } from "@/hooks/useRealtimeHabits";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { ID, Query } from "react-native-appwrite";
 import { Swipeable } from "react-native-gesture-handler";
 import { Button, Surface, Text } from "react-native-paper";
 import {
-  client,
   COMPLETIONS_TABLE_ID,
   DATABASE_ID,
-  databases,
   HABITS_TABLE_ID,
-  RealTimeResponse,
 } from "../../lib/appwrite";
 import { useAuth } from "../../lib/auth-context";
 
 export default function Index() {
   const { signOut, user } = useAuth();
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [completedHabits, setCompletedHabits] = useState<string[]>([]);
+  const {
+    habits,
+    completedHabits,
+    fetchHabits,
+    fetchCompletedHabits,
+    handleDeleteHabit,
+    handleComleteHabit,
+    isHabitCompleted,
+  } = useHabits(user?.$id ?? "");
 
   const swipeableRefs = useRef<{ [key: string]: Swipeable | null }>({});
-
-  //FUNCION PARA OBTENER LOS HABITS DE LA BASE DE DATOS
-  const fetchHabits = async () => {
-    const response = await databases.listDocuments<Habit>(
-      DATABASE_ID,
-      HABITS_TABLE_ID,
-      [Query.equal("user_id", user?.$id ?? "")]
-    );
-    setHabits(response.documents);
-  };
-
-  // FUNCION PARA OBTENER LOS HABITS COMPLETADOS HOY
-  const fetchCompletedHabits = async () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // establecer al inicio del día
-    const response = await databases.listDocuments<HabitCompletion>(
-      DATABASE_ID,
-      COMPLETIONS_TABLE_ID,
-      [
-        Query.equal("user_id", user?.$id ?? ""),
-        Query.greaterThan("completed_at", today.toISOString()),
-      ]
-    );
-
-    const completions = response.documents;
-    setCompletedHabits(completions.map((completion) => completion.habit_id));
-  };
-
-  //FUNCION PARA ELIMINAR UN HABIT
-  const handleDeleteHabit = async (habitId: string) => {
-    // eliminar habit de la interfaz de usuario inmediatamente
-    setHabits((prevHabits) =>
-      prevHabits.filter((habit) => habit.$id !== habitId)
-    );
-    // eliminar habit de la base de datos
-    try {
-      await databases.deleteDocument(DATABASE_ID, HABITS_TABLE_ID, habitId);
-    } catch (error) {
-      console.error("Error al eliminar el hábito:", error);
-    }
-  };
-
-  // FUNCION PARA COMPLETAR UN HABIT
-  const handleComleteHabit = async (habitId: string) => {
-    const currentDate = new Date().toISOString();
-    if (!user) return;
-    // eliminar habit de la base de datos
-    try {
-      await databases.createDocument(
-        DATABASE_ID,
-        COMPLETIONS_TABLE_ID,
-        ID.unique(),
-        {
-          habit_id: habitId,
-          user_id: user.$id ?? "",
-          completed_at: currentDate,
-        }
-      );
-    } catch (error) {
-      console.error("Error al completar el hábito:", error);
-    }
-
-    const habit = habits.find((h) => h.$id === habitId);
-    if (!habit) return;
-
-    await databases.updateDocument(DATABASE_ID, HABITS_TABLE_ID, habitId, {
-      streak_count: habit.streak_count + 1,
-      last_completed: currentDate,
-    });
-  };
 
   // FUNCION PARA RENDERIZAR LAS ACCIONES AL DESLIZAR A LA DERECHA
   const renderRightActions = () => (
     <View style={styles.rightAction}>
-      <MaterialCommunityIcons
-        name="trash-can-outline"
-        size={32}
-        color="#fff"
-        // style={{ backgroundColor: "#4caf50", padding: 20 }}
-      />
+      <MaterialCommunityIcons name="trash-can-outline" size={32} color="#fff" />
     </View>
   );
 
@@ -111,43 +40,18 @@ export default function Index() {
         name="check-circle-outline"
         size={32}
         color="#fff"
-        // style={{ backgroundColor: "#ff5252", padding: 20 }}
       />
     </View>
   );
 
-  // SUSCRIPCION EN TIEMPO REAL PARA ESCUCHAR CAMBIOS EN LOS HABITS
-  useEffect(() => {
-    if (!user) return; // evita escuchar la base de datos de un usuario que no esta logueado
-    const habitsSubscription = client.subscribe(
-      [`databases.${DATABASE_ID}.collections.${HABITS_TABLE_ID}.documents`],
-      (response: RealTimeResponse) => {
-        if (
-          response.events.includes(
-            `databases.${DATABASE_ID}.collections.${HABITS_TABLE_ID}.documents.*.create`
-          )
-        ) {
-          fetchHabits();
-        } else if (
-          response.events.includes(
-            `databases.${DATABASE_ID}.collections.${HABITS_TABLE_ID}.documents.*.update`
-          )
-        ) {
-          fetchHabits();
-        } else if (
-          response.events.includes(
-            `databases.${DATABASE_ID}.collections.${HABITS_TABLE_ID}.documents.*.delete`
-          )
-        ) {
-          fetchHabits();
-        }
-      }
-    );
-    fetchHabits(); // obtener los habits al montar el componente
-    return () => {
-      habitsSubscription();
-    };
-  }, [user]);
+  useRealtimeHabits({
+    user: user?.$id ? user : null,
+    fetchHabits,
+    fetchCompletedHabits,
+    DATABASE_ID,
+    HABITS_TABLE_ID,
+    COMPLETIONS_TABLE_ID,
+  });
 
   return (
     <View style={styles.container}>
@@ -188,7 +92,13 @@ export default function Index() {
                 }
               }}
             >
-              <Surface style={styles.card} elevation={0}>
+              <Surface
+                style={[
+                  styles.card,
+                  isHabitCompleted(habit.$id) && styles.completedCard,
+                ]}
+                elevation={0}
+              >
                 <View style={styles.cardContainer}>
                   <Text style={styles.cardTitle}>{habit.title}</Text>
                   <Text style={styles.cardDescription}>
@@ -247,6 +157,9 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: "666666",
+  },
+  completedCard: {
+    opacity: 0.6,
   },
   cardContainer: { padding: 20 },
   cardTitle: {
